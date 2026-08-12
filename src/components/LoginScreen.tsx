@@ -3,15 +3,15 @@ import { BookOpen, AlertTriangle } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { SCHOOL_NAME } from '@/lib/constants';
 
-export default function LoginScreen({ onLogin }: { onLogin: (email: string, password: string) => string | null }) {
+export default function LoginScreen({ onLogin }: { onLogin: (email: string, password: string) => Promise<string | null> }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const err = onLogin(email, password);
+    const err = await onLogin(email, password);
     setError(err ?? '');
   }
 

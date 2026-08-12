@@ -2,8 +2,6 @@ import { Megaphone, CalendarClock, CreditCard, GraduationCap, Siren } from 'luci
 
 export const SCHOOL_NAME = 'G.S Gacuba 2A';
 export const SCHOOL_INITIAL = 'G';
-export const ADMIN_EMAIL = 'bessora@sybellasystems.co.rw';
-export const ADMIN_PASSWORD = 'Admin@123';
 export const AUTH_KEY = 'gacuba_admin_auth';
 
 export const galleryImages = [

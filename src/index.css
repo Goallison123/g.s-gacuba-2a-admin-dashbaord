@@ -185,6 +185,17 @@ h1 span { font-family: sans-serif; color: #7eb8d4; font-size: 20px; vertical-ali
 .content-body h3 { color: #5c3a1e; font-size: 13px; line-height: 1.35; margin-bottom: 7px; }
 .content-body p { color: #9a8870; font-size: 10px; line-height: 1.5; min-height: 31px; margin-bottom: 12px; }
 .content-actions { display: flex; gap: 12px; }
+.content-card-header { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 12px; align-items: flex-start; }
+.content-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 10px; flex-shrink: 0; }
+.content-meta { display: flex; flex-wrap: wrap; gap: 10px; color: #9a8870; font-size: 10px; margin-bottom: 12px; }
+.pagination { display: flex; justify-content: space-between; align-items: center; gap: 15px; padding: 18px 0; }
+.pager-summary { color: #9a8870; font-size: 11px; }
+.pager-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.pager-button { background: #fff; color: #5c3a1e; border: 1px solid #e0d4c0; border-radius: 7px; padding: 8px 11px; font-size: 11px; cursor: pointer; }
+.pager-button:hover:not(:disabled) { border-color: #b89868; }
+.pager-button:disabled { opacity: .5; cursor: not-allowed; }
+.pager-button.active { background: #5c3a1e; color: #fff; border-color: transparent; }
+.content-card-header h3 { margin-top: 3px; }
 .empty-content-card { border: 1px dashed #c4b498; border-radius: 10px; background: rgba(255,255,255,.4); min-height: 275px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9a8870; gap: 8px; padding: 20px; }
 .empty-content-card > div { width: 35px; height: 35px; border-radius: 50%; display: grid; place-items: center; color: #8a6a3a; background: #f5ecd8; margin-bottom: 3px; }
 .empty-content-card strong { color: #5c3a1e; font-size: 11px; }
@@ -262,6 +273,10 @@ h1 span { font-family: sans-serif; color: #7eb8d4; font-size: 20px; vertical-ali
 .hidden-input { display: none; }
 .toast { position: fixed; z-index: 80; bottom: 26px; right: 28px; background: #5c3a1e; color: #fff; display: flex; gap: 8px; align-items: center; padding: 12px 16px; border-radius: 7px; font-size: 11px; box-shadow: 0 10px 30px rgba(50,30,12,.2); animation: toast-in .25s ease-out; }
 .toast svg { color: #7eb8d4; }
+.loading-screen { min-height: 100vh; display: grid; place-items: center; gap: 18px; padding: 24px; background: #f7f5ef; color: #5c3a1e; text-align: center; }
+.loading-spinner { width: 62px; height: 62px; border-radius: 50%; border: 6px solid rgba(92,58,30,.15); border-top-color: #5c3a1e; animation: spinner-rotate 1s linear infinite; }
+.loading-label { margin: 0; font-size: 14px; letter-spacing: .4px; text-transform: uppercase; font-weight: 700; color: #5c3a1e; }
+@keyframes spinner-rotate { to { transform: rotate(360deg); } }
 @keyframes toast-in { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .logout-btn { color: #c4a880; background: transparent; display: grid; place-items: center; padding: 5px; border-radius: 7px; transition: .2s ease; }
 .logout-btn:hover { color: #fff; background: rgba(255,255,255,.1); }

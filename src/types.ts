@@ -24,14 +24,32 @@ export type Campaign = {
   created_at: string;
 };
 
+export type WorkspaceSettings = {
+  id: string;
+  admin_name: string;
+  default_notification_channel: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type Content = {
   id: string;
   title: string;
-  content_type: string;
+  content_type: 'News' | 'Announcement' | 'Gallery';
   excerpt: string;
   image_url?: string;
+  src?: string;
+  date?: string;
+  category?: string;
+  description?: string;
+  summary?: string;
+  content?: string[];
+  author?: string;
+  read_time?: string;
+  image?: string;
   status: string;
   published_at?: string;
+  updated_at?: string;
   created_at: string;
 };
 

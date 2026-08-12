@@ -33,7 +33,7 @@ import {
   X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { View, Contact, Campaign, Content, Inquiry } from '@/types';
+import type { View, Contact, Campaign, Content, Inquiry, WorkspaceSettings } from '@/types';
 import { SCHOOL_NAME, AUTH_KEY, galleryImages, CATEGORIES, categoryMeta } from '@/lib/constants';
 import { formatDate, initials, downloadBlob, contentCount } from '@/utils/helpers';
 import Overview from '@/pages/Overview';
@@ -58,11 +58,13 @@ import Button from '@/components/ui/Button';
 function App() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(AUTH_KEY) === 'true');
   const [user, setUser] = useState<{ email?: string | null; full_name?: string | null } | null>(null);
+  const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [content, setContent] = useState<Content[]>([]);
+  const [editingContent, setEditingContent] = useState<Content | null>(null);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNotification, setShowNotification] = useState(false);
@@ -79,19 +81,22 @@ function App() {
     async function loadData() {
       if (!supabase) return;
       setLoading(true);
-      const [contactsResult, campaignsResult, contentResult, inquiriesResult] = await Promise.all([
+      const [contactsResult, campaignsResult, galleryResult, newsResult, inquiriesResult, settingsResult] = await Promise.all([
         supabase.from('school_contacts').select('*').order('created_at', { ascending: false }).limit(100),
         supabase.from('notification_campaigns').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('school_content').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('gallery_items').select('*').order('updated_at', { ascending: false }).limit(50),
+        supabase.from('news_items').select('*').order('published_at', { ascending: false }).limit(50),
         supabase.from('school_inquiries').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('workspace_settings').select('*').limit(1),
       ]).catch((err) => {
         console.error('Failed to load initial data', err);
-        return [ { data: [] }, { data: [] }, { data: [] }, { data: [] } ];
+        return [ { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] } ];
       });
       if (contactsResult?.data) setContacts(contactsResult.data as Contact[]);
       if (campaignsResult?.data) setCampaigns(campaignsResult.data as Campaign[]);
-      if (contentResult?.data) setContent(contentResult.data as Content[]);
+      if (galleryResult?.data && newsResult?.data) setContent([...(galleryResult.data as Content[]), ...(newsResult.data as Content[])]);
       if (inquiriesResult?.data) setInquiries(inquiriesResult.data as Inquiry[]);
+      if (settingsResult?.data?.length) setSettings(settingsResult.data[0] as WorkspaceSettings);
       setLoading(false);
     }
     void loadData();
@@ -142,35 +147,112 @@ function App() {
     notify('Notification deleted.');
   }
 
-  async function saveContent(item: Omit<Content, 'id' | 'created_at'>) {
+  async function saveContent(item: Omit<Content, 'id' | 'created_at'> & Partial<Pick<Content, 'id'>>) {
     if (!supabase) {
       notify('Unable to save: database is not configured.');
       return;
     }
-    // ensure we only send fields the DB expects, and set `author` to the current admin
+
+    const adminName = settings?.admin_name || user?.full_name || user?.email || 'Administrator';
     const payload = {
       ...item,
-      author: item.author || user?.full_name || user?.email || 'Administrator',
-      // keep both image and image_url fields for compatibility
-      image: item.image || item.image_url,
+      author: item.author || adminName,
+      image_url: item.image_url || item.image,
+      src: item.src || item.image_url || item.image,
+      status: item.status ?? 'Draft',
+      published_at: item.published_at,
+      updated_at: new Date().toISOString(),
     } as any;
-    const { data, error } = await supabase.from('school_content').insert(payload).select().maybeSingle();
+
+    const targetTable = item.content_type === 'Gallery' ? 'gallery_items' : 'news_items';
+    const dbData = item.id
+      ? {
+          title: payload.title,
+          category: payload.category,
+          description: payload.description,
+          status: payload.status,
+          src: payload.src,
+          image_url: payload.image_url,
+          date: payload.date,
+          summary: payload.summary,
+          content: payload.content || [],
+          author: payload.author,
+          read_time: payload.read_time,
+          published_at: payload.published_at,
+          updated_at: payload.updated_at,
+        }
+      : item.content_type === 'Gallery'
+        ? {
+            src: payload.src,
+            title: payload.title,
+            category: payload.category,
+            description: payload.description,
+            status: payload.status,
+            order: 0,
+          }
+        : {
+            title: payload.title,
+            date: payload.date,
+            category: payload.category,
+            summary: payload.summary,
+            content: payload.content || [],
+            author: payload.author,
+            read_time: payload.read_time,
+            image_url: payload.image_url,
+            status: payload.status,
+            published_at: payload.published_at,
+          };
+
+    const response = item.id
+      ? await supabase.from(targetTable).update(dbData).eq('id', item.id).select().maybeSingle()
+      : await supabase.from(targetTable).insert(dbData).select().maybeSingle();
+
+    const { data, error } = response;
     if (error || !data) {
       console.error('Failed to save content', error);
       notify('Failed to save content.');
       return;
     }
-    setContent((items) => [data as Content, ...items]);
+
+    setContent((items) => item.id
+      ? items.map((existing) => existing.id === item.id ? data as Content : existing)
+      : [data as Content, ...items]);
+    setEditingContent(null);
     setShowContentForm(false);
-    notify('Content saved to your website workspace.');
+    notify(item.id ? 'Content updated successfully.' : 'Content saved to your website workspace.');
+  }
+
+  async function saveSettings(values: { admin_name: string; default_notification_channel: string }) {
+    if (!supabase) {
+      notify('Unable to save settings: database is not configured.');
+      return;
+    }
+
+    const payload = {
+      id: '00000000-0000-0000-0000-000000000001',
+      admin_name: values.admin_name,
+      default_notification_channel: values.default_notification_channel,
+    };
+    const { data, error } = await supabase.from('workspace_settings').upsert(payload, { onConflict: 'id' }).select().maybeSingle();
+    if (error || !data) {
+      console.error('Failed to save settings', error);
+      notify('Failed to save settings.');
+      return;
+    }
+    setSettings(data as WorkspaceSettings);
+    notify('Settings saved successfully.');
   }
 
   async function deleteContent(id: string) {
     if (!supabase) {
-      notify('Unable to delete: database is not configured.');
+      notify('Unable to delete content: database is not configured.');
       return;
     }
-    const { error } = await supabase.from('school_content').delete().eq('id', id).throwOnError();
+
+    const galleryDelete = await supabase.from('gallery_items').delete().eq('id', id);
+    const newsDelete = await supabase.from('news_items').delete().eq('id', id);
+    const error = galleryDelete.error || newsDelete.error;
+
     if (error) {
       console.error('Failed to delete content', error);
       notify('Failed to delete content.');
@@ -186,7 +268,12 @@ function App() {
       return;
     }
     const published_at = new Date().toISOString();
-    const { data, error } = await supabase.from('school_content').update({ status: 'Published', published_at }).eq('id', id).select().maybeSingle();
+
+    const galleryUpdate = await supabase.from('gallery_items').update({ status: 'Published', updated_at: published_at }).eq('id', id).select().maybeSingle();
+    const newsUpdate = await supabase.from('news_items').update({ status: 'Published', published_at }).eq('id', id).select().maybeSingle();
+    const data = galleryUpdate.data || newsUpdate.data;
+    const error = galleryUpdate.error || newsUpdate.error;
+
     if (error || !data) {
       console.error('Failed to publish content', error);
       notify('Failed to publish content.');
@@ -373,7 +460,7 @@ function App() {
       {showContactImport && <ImportModal onClose={() => setShowContactImport(false)} onChoose={() => importRef.current?.click()} />}
       {showContentForm && <ContentModal onClose={() => setShowContentForm(false)} onSave={saveContent} />}
       {showAddContact && <AddContactModal onClose={() => setShowAddContact(false)} onSave={addContact} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} notify={notify} adminName={user?.full_name} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} notify={notify} adminName={settings?.admin_name ?? user?.full_name} defaultChannel={settings?.default_notification_channel} onSave={saveSettings} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       <input ref={importRef} type="file" accept=".csv,text/csv" className="hidden-input" onChange={handleImport} />
       {toast && <div className="toast"><Check size={17} />{toast}</div>}
