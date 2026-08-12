@@ -1,4 +1,5 @@
 import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { Routes, Route, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import JSZip from 'jszip';
 import {
   AlertTriangle,
@@ -57,7 +58,8 @@ import Button from '@/components/ui/Button';
 function App() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(AUTH_KEY) === 'true');
   const [user, setUser] = useState<{ email?: string | null; full_name?: string | null } | null>(null);
-  const [view, setView] = useState<View>('overview');
+  const navigate = useNavigate();
+  const location = useLocation();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [content, setContent] = useState<Content[]>([]);
@@ -145,7 +147,14 @@ function App() {
       notify('Unable to save: database is not configured.');
       return;
     }
-    const { data, error } = await supabase.from('school_content').insert(item).select().maybeSingle();
+    // ensure we only send fields the DB expects, and set `author` to the current admin
+    const payload = {
+      ...item,
+      author: item.author || user?.full_name || user?.email || 'Administrator',
+      // keep both image and image_url fields for compatibility
+      image: item.image || item.image_url,
+    } as any;
+    const { data, error } = await supabase.from('school_content').insert(payload).select().maybeSingle();
     if (error || !data) {
       console.error('Failed to save content', error);
       notify('Failed to save content.');
@@ -272,12 +281,12 @@ function App() {
     notify(`Contacts exported as ${format.toUpperCase()}.`);
   }
 
-  const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'campaigns', label: 'Notifications', icon: Megaphone },
-    { id: 'contacts', label: 'Parent contacts', icon: Users },
-    { id: 'content', label: 'Website content', icon: GalleryHorizontal },
-    { id: 'inquiries', label: 'Visitor inquiries', icon: Inbox },
+  const navItems: { id: View; label: string; icon: typeof LayoutDashboard; path: string }[] = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/overview' },
+    { id: 'campaigns', label: 'Notifications', icon: Megaphone, path: '/campaigns' },
+    { id: 'contacts', label: 'Parent contacts', icon: Users, path: '/contacts' },
+    { id: 'content', label: 'Website content', icon: GalleryHorizontal, path: '/content' },
+    { id: 'inquiries', label: 'Visitor inquiries', icon: Inbox, path: '/inquiries' },
   ];
 
   async function handleLogin(email: string, password: string): Promise<string | null> {
@@ -306,7 +315,7 @@ function App() {
     sessionStorage.removeItem(AUTH_KEY);
     setAuthed(false);
     setUser(null);
-    setView('overview');
+    navigate('/overview');
   }
 
   useEffect(() => {
@@ -327,7 +336,7 @@ function App() {
     }
   }, []);
 
-  if (!authed) return <LoginScreen onLogin={handleLogin} />;
+  if (!authed) return <LoginScreen onLogin={async (email, password) => { const res = await handleLogin(email, password); if (!res) navigate('/overview'); return res; }} />;
 
   if (loading) return <LoadingScreen />;
 
@@ -337,17 +346,26 @@ function App() {
         <div className="brand"><Avatar variant="brand"><BookOpen size={20} strokeWidth={2.5} /></Avatar><div><strong>{SCHOOL_NAME}</strong><span>ADMIN PORTAL</span></div></div>
         <div className="school-switcher"><div className="school-avatar">{SCHOOL_NAME[0]}</div><div><strong>{SCHOOL_NAME}</strong><span>School workspace</span></div><ChevronDown size={15} /></div>
         <p className="nav-label">Workspace</p>
-        <nav className="nav-list">{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={`nav-item ${view === id ? 'active' : ''}`} onClick={() => setView(id)}><Icon size={18} /><span>{label}</span>{id === 'inquiries' && inquiries.filter((i) => i.status === 'New').length > 0 && <b className="nav-badge">{inquiries.filter((i) => i.status === 'New').length}</b>}</button>)}</nav>
+        <nav className="nav-list">{navItems.map(({ id, label, icon: Icon, path }) => (
+          <NavLink key={id} to={path} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Icon size={18} />
+            <span>{label}</span>
+            {id === 'inquiries' && inquiries.filter((i) => i.status === 'New').length > 0 && <b className="nav-badge">{inquiries.filter((i) => i.status === 'New').length}</b>}
+          </NavLink>
+        ))}</nav>
         <div className="sidebar-bottom"><button className="nav-item" onClick={() => setShowSettings(true)}><Settings size={18} /><span>Settings</span></button><button className="nav-item" onClick={() => setShowHelp(true)}><CircleHelp size={18} /><span>Help center</span></button><div className="user-card"><Avatar initials={(user?.full_name || user?.email || 'A').split(' ').map((n) => n[0]).slice(0,2).join('') ?? 'A'} /><div><strong>{user?.full_name ?? user?.email ?? 'Administrator'}</strong><span>Administrator</span></div><IconButton onClick={handleLogout} title="Sign out"><LogOut size={16} /></IconButton></div></div>
       </aside>
       <main className="main-content">
-        <header className="topbar"><div className="breadcrumb"><span>{SCHOOL_NAME}</span><ChevronRight size={14} /><strong>{navItems.find((item) => item.id === view)?.label}</strong></div><div className="top-actions"><IconButton className="notification-button" onClick={() => setShowNotifications((open) => !open)}><Bell size={19} /><i /></IconButton>{showNotifications && <div className="notification-popover"><strong>Notifications</strong><p>Your PTA campaign was delivered to {contacts.length} parents.</p></div>}<div className="top-divider" /><Avatar initials={(user?.full_name || user?.email || SCHOOL_NAME).split(' ').map((n) => n[0]).slice(0,2).join('')} variant="mini" /></div></header>
+        <header className="topbar"><div className="breadcrumb"><span>{SCHOOL_NAME}</span><ChevronRight size={14} /><strong>{navItems.find((item) => item.path === (location.pathname === '/' ? '/overview' : location.pathname))?.label}</strong></div><div className="top-actions"><IconButton className="notification-button" onClick={() => setShowNotifications((open) => !open)}><Bell size={19} /><i /></IconButton>{showNotifications && <div className="notification-popover"><strong>Notifications</strong><p>Your PTA campaign was delivered to {contacts.length} parents.</p></div>}<div className="top-divider" /><Avatar initials={(user?.full_name || user?.email || SCHOOL_NAME).split(' ').map((n) => n[0]).slice(0,2).join('')} variant="mini" /></div></header>
         <div className="page-wrap">
-          {view === 'overview' && <Overview contacts={contacts} campaigns={campaigns} content={content} inquiries={inquiries} onNavigate={setView} onCompose={() => setShowNotification(true)} />}
-          {view === 'campaigns' && <Campaigns campaigns={campaigns} onCompose={() => setShowNotification(true)} onDelete={deleteCampaign} notify={notify} />}
-          {view === 'contacts' && <Contacts contacts={contacts} onImport={() => setShowContactImport(true)} onExport={exportContacts} onAdd={() => setShowAddContact(true)} onDelete={deleteContact} />}
-          {view === 'content' && <ContentManager content={content} onAdd={() => setShowContentForm(true)} onDelete={deleteContent} onPublish={publishContent} />}
-          {view === 'inquiries' && <Inquiries inquiries={inquiries} setInquiries={setInquiries} notify={notify} />}
+          <Routes>
+            <Route path="/" element={<Overview contacts={contacts} campaigns={campaigns} content={content} inquiries={inquiries} onNavigate={(v: View) => navigate(navItems.find((n) => n.id === v)?.path ?? '/overview')} onCompose={() => setShowNotification(true)} />} />
+            <Route path="/overview" element={<Overview contacts={contacts} campaigns={campaigns} content={content} inquiries={inquiries} onNavigate={(v: View) => navigate(navItems.find((n) => n.id === v)?.path ?? '/overview')} onCompose={() => setShowNotification(true)} />} />
+            <Route path="/campaigns" element={<Campaigns campaigns={campaigns} onCompose={() => setShowNotification(true)} onDelete={deleteCampaign} notify={notify} />} />
+            <Route path="/contacts" element={<Contacts contacts={contacts} onImport={() => setShowContactImport(true)} onExport={exportContacts} onAdd={() => setShowAddContact(true)} onDelete={deleteContact} />} />
+            <Route path="/content" element={<ContentManager content={content} onAdd={() => setShowContentForm(true)} onDelete={deleteContent} onPublish={publishContent} />} />
+            <Route path="/inquiries" element={<Inquiries inquiries={inquiries} setInquiries={setInquiries} notify={notify} />} />
+          </Routes>
         </div>
       </main>
 
