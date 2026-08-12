@@ -1,11 +1,11 @@
 import React from 'react';
 import { Users, Send, GalleryHorizontal, ArrowUpRight, Plus } from 'lucide-react';
-import type { Contact, Campaign, Inquiry, View } from '@/types';
+import type { Contact, Campaign, Inquiry, View, Content } from '@/types';
 import { CATEGORIES, galleryImages } from '@/lib/constants';
 import { contentCount } from '@/utils/helpers';
 import Button from '@/components/ui/Button';
 
-export default function Overview({ contacts, campaigns, inquiries, onNavigate, onCompose }: { contacts: Contact[]; campaigns: Campaign[]; inquiries: Inquiry[]; onNavigate: (v: View) => void; onCompose: () => void }) {
+export default function Overview({ contacts, campaigns, inquiries, content, onNavigate, onCompose }: { contacts: Contact[]; campaigns: Campaign[]; inquiries: Inquiry[]; content: Content[]; onNavigate: (v: View) => void; onCompose: () => void }) {
   const sent = campaigns.filter((c) => c.status === 'Sent').length;
 
   return (
@@ -39,7 +39,7 @@ export default function Overview({ contacts, campaigns, inquiries, onNavigate, o
       <div className="stats-grid">
         <StatCard label="Parent contacts" value={String(contacts.length)} detail="Total" icon={Users} tone="sky" action={() => onNavigate('contacts')} />
         <StatCard label="Messages delivered" value={String(sent)} detail="Delivered" icon={Send} tone="brown" action={() => onNavigate('campaigns')} />
-        <StatCard label="Published content" value={String(contentCount(campaigns as unknown as any))} detail="Across news & gallery" icon={GalleryHorizontal} tone="brown" action={() => onNavigate('content')} />
+        <StatCard label="Published content" value={String(contentCount(content as unknown as any))} detail="Across news & gallery" icon={GalleryHorizontal} tone="brown" action={() => onNavigate('content')} />
       </div>
     </>
   );

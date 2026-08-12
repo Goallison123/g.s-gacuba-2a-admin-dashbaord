@@ -47,41 +47,22 @@ import AddContactModal from '@/components/modals/AddContactModal';
 import SettingsModal from '@/components/modals/SettingsModal';
 import HelpModal from '@/components/modals/HelpModal';
 import LoginScreen from '@/components/LoginScreen';
+import Avatar from '@/components/ui/Avatar';
+import IconButton from '@/components/ui/IconButton';
+import Button from '@/components/ui/Button';
 
-const seedContacts: Contact[] = [
-  { id: '1', parent_name: 'Mukamana Grace', student_name: 'Kwizera Grace', class_name: 'P6A', phone: '+250 788 451 289', email: 'grace.mukamana@email.com', preferred_channel: 'WhatsApp', status: 'Active', created_at: '2024-05-01' },
-  { id: '2', parent_name: 'Habimana Daniel', student_name: 'Ishimwe Daniel', class_name: 'S3B', phone: '+250 788 923 440', email: 'daniel.habimana@email.com', preferred_channel: 'SMS', status: 'Active', created_at: '2024-05-01' },
-  { id: '3', parent_name: 'Uwase Amina', student_name: 'Inshuti Amina', class_name: 'P5C', phone: '+250 788 110 568', email: 'amina.uwase@email.com', preferred_channel: 'Email', status: 'Active', created_at: '2024-05-02' },
-  { id: '4', parent_name: 'Ndayishimiye Michael', student_name: 'Tuyisenge Michael', class_name: 'S6A', phone: '+250 788 774 903', email: 'michael.ndayishimiye@email.com', preferred_channel: 'WhatsApp', status: 'Active', created_at: '2024-05-03' },
-];
-
-const seedCampaigns: Campaign[] = [
-  { id: '1', title: 'PTA General Meeting', message: 'Dear parent, our next PTA meeting is scheduled for Friday, 17 May at 4:00 PM in the school hall.', channels: ['SMS', 'WhatsApp'], recipient_count: 812, status: 'Sent', category: 'Parent notification', created_at: '2024-05-10' },
-  { id: '2', title: 'Absentee alert - P6A', message: 'Your child was marked absent today. Please contact the school office if this is unexpected.', channels: ['SMS'], recipient_count: 38, status: 'Sent', category: 'Attendance alert', created_at: '2024-05-12' },
-  { id: '3', title: 'Term 2 fees due', message: 'A friendly reminder that Term 2 school fees are due by 20 May. Please complete payment at your earliest convenience.', channels: ['SMS', 'Email'], recipient_count: 812, status: 'Scheduled', scheduled_for: '2024-05-17', category: 'Fee reminder', created_at: '2024-05-09' },
-  { id: '4', title: 'S3 midterm results published', message: 'S3 midterm examination results are now available. Please check the parent portal or visit the school.', channels: ['Email'], recipient_count: 145, status: 'Draft', category: 'Examination result', created_at: '2024-05-08' },
-  { id: '5', title: 'Emergency closure - heavy rain', message: 'Due to heavy rainfall and flooding risk, the school will be closed tomorrow. Please keep children safe at home.', channels: ['SMS', 'WhatsApp', 'Email'], recipient_count: 812, status: 'Sent', category: 'Emergency announcement', created_at: '2024-05-13' },
-];
-
-const seedContent: Content[] = [
-  { id: '1', title: 'Term 2 Open Day', content_type: 'News', excerpt: 'Meet our teachers, tour the campus, and discover what makes G.S Gacuba 2A a place to thrive.', image_url: galleryImages[0], status: 'Published', published_at: '2024-05-12', created_at: '2024-05-12' },
-  { id: '2', title: 'Congratulations to our debate finalists', content_type: 'Announcement', excerpt: 'Our senior debate team has qualified for the district inter-school finals.', image_url: galleryImages[1], status: 'Published', published_at: '2024-05-08', created_at: '2024-05-08' },
-  { id: '3', title: 'A day in P6', content_type: 'Gallery', excerpt: 'A glimpse into a day of curious minds, collaboration, and discovery.', image_url: galleryImages[2], status: 'Draft', created_at: '2024-05-04' },
-];
-
-const seedInquiries: Inquiry[] = [
-  { id: '1', visitor_name: 'Sarah Williams', email: 'sarah.williams@gmail.com', phone: '+250 789 123 778', topic: 'Admissions', message: 'I would like to learn more about admissions for P1 next term.', status: 'New', created_at: '2024-05-14' },
-  { id: '2', visitor_name: 'Oluwaseun Adebayo', email: 'seun.adebayo@email.com', topic: 'General enquiry', message: 'Could you please send me the school fees structure for the next session?', status: 'In progress', created_at: '2024-05-13' },
-  { id: '3', visitor_name: 'Mariam Yusuf', email: 'mariam.yusuf@email.com', topic: 'Visit request', message: 'I would like to arrange a campus tour for my family.', status: 'Resolved', created_at: '2024-05-11' },
-];
+// initial data is loaded from Supabase at runtime; remove hard-coded seeds so the
+// application uses the canonical database source of truth
 
 function App() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(AUTH_KEY) === 'true');
+  const [user, setUser] = useState<{ email?: string | null; full_name?: string | null } | null>(null);
   const [view, setView] = useState<View>('overview');
-  const [contacts, setContacts] = useState<Contact[]>(seedContacts);
-  const [campaigns, setCampaigns] = useState<Campaign[]>(seedCampaigns);
-  const [content, setContent] = useState<Content[]>(seedContent);
-  const [inquiries, setInquiries] = useState<Inquiry[]>(seedInquiries);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [content, setContent] = useState<Content[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showNotification, setShowNotification] = useState(false);
   const [showContactImport, setShowContactImport] = useState(false);
   const [showContentForm, setShowContentForm] = useState(false);
@@ -95,16 +76,21 @@ function App() {
   useEffect(() => {
     async function loadData() {
       if (!supabase) return;
+      setLoading(true);
       const [contactsResult, campaignsResult, contentResult, inquiriesResult] = await Promise.all([
         supabase.from('school_contacts').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('notification_campaigns').select('*').order('created_at', { ascending: false }).limit(20),
-        supabase.from('school_content').select('*').order('created_at', { ascending: false }).limit(20),
-        supabase.from('school_inquiries').select('*').order('created_at', { ascending: false }).limit(20),
-      ]);
-      if (contactsResult.data?.length) setContacts(contactsResult.data as Contact[]);
-      if (campaignsResult.data?.length) setCampaigns(campaignsResult.data as Campaign[]);
-      if (contentResult.data?.length) setContent(contentResult.data as Content[]);
-      if (inquiriesResult.data?.length) setInquiries(inquiriesResult.data as Inquiry[]);
+        supabase.from('notification_campaigns').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('school_content').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('school_inquiries').select('*').order('created_at', { ascending: false }).limit(50),
+      ]).catch((err) => {
+        console.error('Failed to load initial data', err);
+        return [ { data: [] }, { data: [] }, { data: [] }, { data: [] } ];
+      });
+      if (contactsResult?.data) setContacts(contactsResult.data as Contact[]);
+      if (campaignsResult?.data) setCampaigns(campaignsResult.data as Campaign[]);
+      if (contentResult?.data) setContent(contentResult.data as Content[]);
+      if (inquiriesResult?.data) setInquiries(inquiriesResult.data as Inquiry[]);
+      setLoading(false);
     }
     void loadData();
   }, []);
@@ -114,63 +100,121 @@ function App() {
     window.setTimeout(() => setToast(''), 2600);
   }
 
+  function LoadingScreen() {
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner" />
+        <p className="loading-label">Loading workspace...</p>
+      </div>
+    );
+  }
+
   async function saveCampaign(campaign: Omit<Campaign, 'id' | 'created_at'>) {
-    const optimistic = { ...campaign, id: crypto.randomUUID(), created_at: new Date().toISOString() };
-    setCampaigns((items) => [optimistic, ...items]);
-    if (supabase) {
-      const { data } = await supabase.from('notification_campaigns').insert(campaign).select().maybeSingle();
-      if (data) setCampaigns((items) => items.map((item) => item.id === optimistic.id ? data as Campaign : item));
+    if (!supabase) {
+      notify('Unable to save: database is not configured.');
+      return;
     }
+    const { data, error } = await supabase.from('notification_campaigns').insert(campaign).select().maybeSingle();
+    if (error || !data) {
+      console.error('Failed to save campaign', error);
+      notify('Failed to save notification.');
+      return;
+    }
+    setCampaigns((items) => [data as Campaign, ...items]);
     setShowNotification(false);
     notify(campaign.status === 'Scheduled' ? 'Notification scheduled successfully.' : 'Notification sent successfully.');
   }
 
   async function deleteCampaign(id: string) {
+    if (!supabase) {
+      notify('Unable to delete: database is not configured.');
+      return;
+    }
+    const { error } = await supabase.from('notification_campaigns').delete().eq('id', id).throwOnError();
+    if (error) {
+      console.error('Failed to delete campaign', error);
+      notify('Failed to delete notification.');
+      return;
+    }
     setCampaigns((items) => items.filter((item) => item.id !== id));
-    if (supabase) await supabase.from('notification_campaigns').delete().eq('id', id);
     notify('Notification deleted.');
   }
 
   async function saveContent(item: Omit<Content, 'id' | 'created_at'>) {
-    const optimistic = { ...item, id: crypto.randomUUID(), created_at: new Date().toISOString() };
-    setContent((items) => [optimistic, ...items]);
-    if (supabase) {
-      const { data } = await supabase.from('school_content').insert(item).select().maybeSingle();
-      if (data) setContent((items) => items.map((entry) => entry.id === optimistic.id ? data as Content : entry));
+    if (!supabase) {
+      notify('Unable to save: database is not configured.');
+      return;
     }
+    const { data, error } = await supabase.from('school_content').insert(item).select().maybeSingle();
+    if (error || !data) {
+      console.error('Failed to save content', error);
+      notify('Failed to save content.');
+      return;
+    }
+    setContent((items) => [data as Content, ...items]);
     setShowContentForm(false);
     notify('Content saved to your website workspace.');
   }
 
   async function deleteContent(id: string) {
+    if (!supabase) {
+      notify('Unable to delete: database is not configured.');
+      return;
+    }
+    const { error } = await supabase.from('school_content').delete().eq('id', id).throwOnError();
+    if (error) {
+      console.error('Failed to delete content', error);
+      notify('Failed to delete content.');
+      return;
+    }
     setContent((items) => items.filter((item) => item.id !== id));
-    if (supabase) await supabase.from('school_content').delete().eq('id', id);
     notify('Content deleted.');
   }
 
   async function publishContent(id: string) {
-    const item = content.find((c) => c.id === id);
-    if (!item) return;
-    const updated = { ...item, status: 'Published', published_at: new Date().toISOString() };
-    setContent((items) => items.map((c) => c.id === id ? updated : c));
-    if (supabase) await supabase.from('school_content').update({ status: 'Published', published_at: updated.published_at }).eq('id', id);
+    if (!supabase) {
+      notify('Unable to publish: database is not configured.');
+      return;
+    }
+    const published_at = new Date().toISOString();
+    const { data, error } = await supabase.from('school_content').update({ status: 'Published', published_at }).eq('id', id).select().maybeSingle();
+    if (error || !data) {
+      console.error('Failed to publish content', error);
+      notify('Failed to publish content.');
+      return;
+    }
+    setContent((items) => items.map((c) => c.id === id ? data as Content : c));
     notify('Content published to your website.');
   }
 
   async function addContact(contact: Omit<Contact, 'id' | 'created_at'>) {
-    const optimistic = { ...contact, id: crypto.randomUUID(), created_at: new Date().toISOString() };
-    setContacts((items) => [optimistic, ...items]);
-    if (supabase) {
-      const { data } = await supabase.from('school_contacts').insert(contact).select().maybeSingle();
-      if (data) setContacts((items) => items.map((c) => c.id === optimistic.id ? data as Contact : c));
+    if (!supabase) {
+      notify('Unable to add contact: database is not configured.');
+      return;
     }
+    const { data, error } = await supabase.from('school_contacts').insert(contact).select().maybeSingle();
+    if (error || !data) {
+      console.error('Failed to add contact', error);
+      notify('Failed to add contact.');
+      return;
+    }
+    setContacts((items) => [data as Contact, ...items]);
     setShowAddContact(false);
     notify('Contact added successfully.');
   }
 
   async function deleteContact(id: string) {
+    if (!supabase) {
+      notify('Unable to delete contact: database is not configured.');
+      return;
+    }
+    const { error } = await supabase.from('school_contacts').delete().eq('id', id).throwOnError();
+    if (error) {
+      console.error('Failed to delete contact', error);
+      notify('Failed to delete contact.');
+      return;
+    }
     setContacts((items) => items.filter((item) => item.id !== id));
-    if (supabase) await supabase.from('school_contacts').delete().eq('id', id);
     notify('Contact removed.');
   }
 
@@ -181,15 +225,30 @@ function App() {
     const lines = text.split(/\r?\n/).filter(Boolean);
     const rows = lines.slice(1).map((line, index) => {
       const values = line.split(',').map((value) => value.trim().replace(/^"|"$/g, ''));
-      return { id: crypto.randomUUID(), parent_name: values[0] || `Imported parent ${index + 1}`, student_name: values[1] || '', class_name: values[2] || '', phone: values[3] || '', email: values[4] || '', preferred_channel: values[5] || 'SMS', status: 'Active', created_at: new Date().toISOString() };
+      return { parent_name: values[0] || `Imported parent ${index + 1}`, student_name: values[1] || '', class_name: values[2] || '', phone: values[3] || '', email: values[4] || '', preferred_channel: values[5] || 'SMS', status: 'Active' };
     });
-    if (rows.length) {
-      setContacts((items) => [...rows, ...items]);
-      if (supabase) await supabase.from('school_contacts').insert(rows.map((row) => { const { id: _removed, ...rest } = row; void _removed; return rest; }));
-      notify(`${rows.length} parent contacts imported.`);
-    } else {
+    if (!rows.length) {
       notify('No contacts found in the CSV file.');
+      setShowContactImport(false);
+      event.target.value = '';
+      return;
     }
+    if (!supabase) {
+      notify('Unable to import: database is not configured.');
+      setShowContactImport(false);
+      event.target.value = '';
+      return;
+    }
+    const { data, error } = await supabase.from('school_contacts').insert(rows).select();
+    if (error || !data) {
+      console.error('Failed to import contacts', error);
+      notify('Failed to import contacts.');
+      setShowContactImport(false);
+      event.target.value = '';
+      return;
+    }
+    setContacts((items) => [...(data as Contact[]), ...items]);
+    notify(`${data.length} parent contacts imported.`);
     setShowContactImport(false);
     event.target.value = '';
   }
@@ -221,23 +280,56 @@ function App() {
     { id: 'inquiries', label: 'Visitor inquiries', icon: Inbox },
   ];
 
-  function handleLogin(email: string, password: string): string | null {
-    // local credential check (seed admin)
-    if (email.trim().toLowerCase() === 'bessora@sybellasystems.co.rw' && password === 'Admin@123') {
+  async function handleLogin(email: string, password: string): Promise<string | null> {
+    if (!supabase) return 'Authentication is not configured.';
+    try {
+      const resp = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      if (resp.error || !resp.data?.user) {
+        console.error('Login failed', resp.error);
+        return resp.error?.message ?? 'Incorrect email or password. Please try again.';
+      }
       sessionStorage.setItem(AUTH_KEY, 'true');
       setAuthed(true);
+      const userInfo = resp.data.user;
+      setUser({ email: userInfo.email ?? undefined, full_name: (userInfo.user_metadata as any)?.full_name ?? undefined });
       return null;
+    } catch (err) {
+      console.error('Login error', err);
+      return 'Authentication failed. Please try again.';
     }
-    return 'Incorrect email or password. Please try again.';
   }
 
   function handleLogout() {
+    if (supabase) {
+      void supabase.auth.signOut().catch((e) => console.warn('Sign out error', e));
+    }
     sessionStorage.removeItem(AUTH_KEY);
     setAuthed(false);
+    setUser(null);
     setView('overview');
   }
 
+  useEffect(() => {
+    // if we have an auth session stored, try to restore user info from Supabase
+    async function restoreUser() {
+      if (!supabase) return;
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) {
+          setUser({ email: data.user.email ?? undefined, full_name: (data.user.user_metadata as any)?.full_name ?? undefined });
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    if (sessionStorage.getItem(AUTH_KEY) === 'true') {
+      void restoreUser();
+    }
+  }, []);
+
   if (!authed) return <LoginScreen onLogin={handleLogin} />;
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="app-shell">
@@ -246,12 +338,12 @@ function App() {
         <div className="school-switcher"><div className="school-avatar">{SCHOOL_NAME[0]}</div><div><strong>{SCHOOL_NAME}</strong><span>School workspace</span></div><ChevronDown size={15} /></div>
         <p className="nav-label">Workspace</p>
         <nav className="nav-list">{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={`nav-item ${view === id ? 'active' : ''}`} onClick={() => setView(id)}><Icon size={18} /><span>{label}</span>{id === 'inquiries' && inquiries.filter((i) => i.status === 'New').length > 0 && <b className="nav-badge">{inquiries.filter((i) => i.status === 'New').length}</b>}</button>)}</nav>
-        <div className="sidebar-bottom"><button className="nav-item" onClick={() => setShowSettings(true)}><Settings size={18} /><span>Settings</span></button><button className="nav-item" onClick={() => setShowHelp(true)}><CircleHelp size={18} /><span>Help center</span></button><div className="user-card"><Avatar initials="AO" /><div><strong>Amaka Okoro</strong><span>Administrator</span></div><IconButton onClick={handleLogout} title="Sign out"><LogOut size={16} /></IconButton></div></div>
+        <div className="sidebar-bottom"><button className="nav-item" onClick={() => setShowSettings(true)}><Settings size={18} /><span>Settings</span></button><button className="nav-item" onClick={() => setShowHelp(true)}><CircleHelp size={18} /><span>Help center</span></button><div className="user-card"><Avatar initials={(user?.full_name || user?.email || 'A').split(' ').map((n) => n[0]).slice(0,2).join('') ?? 'A'} /><div><strong>{user?.full_name ?? user?.email ?? 'Administrator'}</strong><span>Administrator</span></div><IconButton onClick={handleLogout} title="Sign out"><LogOut size={16} /></IconButton></div></div>
       </aside>
       <main className="main-content">
-        <header className="topbar"><div className="breadcrumb"><span>{SCHOOL_NAME}</span><ChevronRight size={14} /><strong>{navItems.find((item) => item.id === view)?.label}</strong></div><div className="top-actions"><IconButton className="notification-button" onClick={() => setShowNotifications((open) => !open)}><Bell size={19} /><i /></IconButton>{showNotifications && <div className="notification-popover"><strong>Notifications</strong><p>Your PTA campaign was delivered to 812 parents.</p></div>}<div className="top-divider" /><Avatar initials="AO" variant="mini" /></div></header>
+        <header className="topbar"><div className="breadcrumb"><span>{SCHOOL_NAME}</span><ChevronRight size={14} /><strong>{navItems.find((item) => item.id === view)?.label}</strong></div><div className="top-actions"><IconButton className="notification-button" onClick={() => setShowNotifications((open) => !open)}><Bell size={19} /><i /></IconButton>{showNotifications && <div className="notification-popover"><strong>Notifications</strong><p>Your PTA campaign was delivered to {contacts.length} parents.</p></div>}<div className="top-divider" /><Avatar initials={(user?.full_name || user?.email || SCHOOL_NAME).split(' ').map((n) => n[0]).slice(0,2).join('')} variant="mini" /></div></header>
         <div className="page-wrap">
-          {view === 'overview' && <Overview contacts={contacts} campaigns={campaigns} inquiries={inquiries} onNavigate={setView} onCompose={() => setShowNotification(true)} />}
+          {view === 'overview' && <Overview contacts={contacts} campaigns={campaigns} content={content} inquiries={inquiries} onNavigate={setView} onCompose={() => setShowNotification(true)} />}
           {view === 'campaigns' && <Campaigns campaigns={campaigns} onCompose={() => setShowNotification(true)} onDelete={deleteCampaign} notify={notify} />}
           {view === 'contacts' && <Contacts contacts={contacts} onImport={() => setShowContactImport(true)} onExport={exportContacts} onAdd={() => setShowAddContact(true)} onDelete={deleteContact} />}
           {view === 'content' && <ContentManager content={content} onAdd={() => setShowContentForm(true)} onDelete={deleteContent} onPublish={publishContent} />}
@@ -259,11 +351,11 @@ function App() {
         </div>
       </main>
 
-      {showNotification && <NotificationModal onClose={() => setShowNotification(false)} onSave={saveCampaign} recipientCount={contacts.length || 812} />}
+      {showNotification && <NotificationModal onClose={() => setShowNotification(false)} onSave={saveCampaign} recipientCount={contacts.length} />}
       {showContactImport && <ImportModal onClose={() => setShowContactImport(false)} onChoose={() => importRef.current?.click()} />}
       {showContentForm && <ContentModal onClose={() => setShowContentForm(false)} onSave={saveContent} />}
       {showAddContact && <AddContactModal onClose={() => setShowAddContact(false)} onSave={addContact} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} notify={notify} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} notify={notify} adminName={user?.full_name} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       <input ref={importRef} type="file" accept=".csv,text/csv" className="hidden-input" onChange={handleImport} />
       {toast && <div className="toast"><Check size={17} />{toast}</div>}

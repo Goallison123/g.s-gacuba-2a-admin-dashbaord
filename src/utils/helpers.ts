@@ -15,14 +15,9 @@ export function initials(name: string) {
   return name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
 }
 
-export function contentCount(campaigns: { length: number }[]) {
-  // lightweight placeholder for content counts
-  // original behavior added a small offset — preserve that behavior
-  // callers should pass campaigns array
-  // When used with campaigns array, it returns campaigns.length + 5
-  // Keep implementation simple and predictable.
-  // Type signature is permissive to avoid tight coupling.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // @ts-ignore
-  return (campaigns as any).length + 5;
+export function contentCount(items: { length?: number }[]) {
+  // Return the length of the provided array reliably.
+  // Callers should pass an array of content items.
+  if (!Array.isArray(items)) return 0;
+  return items.length;
 }
