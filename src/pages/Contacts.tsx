@@ -1,39 +1,48 @@
-import React, { useState } from 'react';
-import { FileSpreadsheet, ArrowDownToLine, ArrowUpRight, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Download, Search, Users } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import type { Contact } from '@/types';
 
-export default function Contacts({ contacts, onImport, onExport, onAdd, onDelete }: { contacts: Contact[]; onImport: () => void; onExport: (format: 'xls' | 'ods') => void; onAdd: () => void; onDelete: (id: string) => void }) {
+export default function Contacts({ contacts, onExport }: { contacts: Contact[]; onExport: (format: 'xls' | 'ods') => void }) {
   const [search, setSearch] = useState('');
-  const filtered = contacts.filter((c) => c.parent_name.toLowerCase().includes(search.toLowerCase()) || c.student_name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search));
+  const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return contacts.filter((contact) => [contact.parent_name, contact.student_name, contact.class_name, contact.phone, contact.email]
+      .some((value) => value.toLocaleLowerCase().includes(query)));
+  }, [contacts, search]);
 
   return (
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Family directory</p>
+          <p className="eyebrow">Student registry records</p>
           <h1>Parent contacts</h1>
+          <p className="subheading">Contact details are managed only from each student’s registry record.</p>
         </div>
         <div className="heading-actions">
-          <Button variant="secondary" onClick={onImport}><ArrowDownToLine size={16} /> Import CSV</Button>
-          <Button variant="primary" onClick={onAdd}><FileSpreadsheet size={16} /> Add contact</Button>
+          <Button variant="secondary" onClick={() => onExport('xls')}><Download size={16} />Export XLS</Button>
+          <Button variant="secondary" onClick={() => onExport('ods')}><Download size={16} />Export ODS</Button>
         </div>
       </div>
 
       <section className="panel table-panel">
-        <div className="panel-header"><h2>All parent contacts <span className="count-badge">{filtered.length}</span></h2><div className="table-tools"><div className="search-box compact"><Search size={16} /><input placeholder="Search parents" value={search} onChange={(e) => setSearch(e.target.value)} /></div></div></div>
+        <div className="panel-header">
+          <h2>Student parent records <span className="count-badge">{filtered.length}</span></h2>
+          <div className="table-tools"><div className="search-box compact"><Search size={16} /><input aria-label="Search parent records" placeholder="Search parents or students" value={search} onChange={(event) => setSearch(event.target.value)} /></div></div>
+        </div>
         <div className="data-table">
-          <div className="table-row contact-row table-head"><span>Parent</span><span>Student</span><span>Contact</span><span>Preferred</span><span>Status</span><span /></div>
-          {filtered.map((c) => (
-            <div className="table-row contact-row" key={c.id}>
-              <span>{c.parent_name}</span>
-              <span>{c.student_name}</span>
-              <span>{c.phone} · {c.email}</span>
-              <span>{c.preferred_channel}</span>
-              <span>{c.status}</span>
-              <div><button onClick={() => onDelete(c.id)}>Delete</button></div>
+          <div className="table-row contact-row table-head"><span>Parent</span><span>Student</span><span>Contact</span><span>Class</span><span>Source</span><span /></div>
+          {filtered.map((contact) => (
+            <div className="table-row contact-row" key={contact.id}>
+              <span>{contact.parent_name || 'Not provided'}</span>
+              <span>{contact.student_name || '—'}</span>
+              <span>{[contact.phone, contact.email].filter(Boolean).join(' · ') || 'No contact details'}</span>
+              <span>{contact.class_name || '—'}</span>
+              <span className="inline-flex items-center gap-1.5"><Users size={13} />Student registry</span>
+              <span />
             </div>
           ))}
+          {filtered.length === 0 && <div className="empty-state"><Users size={24} /><strong>{contacts.length ? 'No matching parent records' : 'No student parent records yet'}</strong><span>{contacts.length ? 'Try a different search.' : 'Add parent contact details to students in the Students Registry.'}</span></div>}
         </div>
       </section>
     </>
