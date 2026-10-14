@@ -1,4 +1,4 @@
-export type View = 'overview' | 'campaigns' | 'contacts' | 'content' | 'inquiries';
+export type View = 'overview' | 'students' | 'campaigns' | 'contacts' | 'content' | 'inquiries';
 
 export type Contact = {
   id: string;

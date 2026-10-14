@@ -17,8 +17,7 @@ export default function SettingsModal({ onClose, notify, adminName, defaultChann
   }, [defaultChannel]);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal small-modal" onClick={(e) => e.stopPropagation()}>
+    <section role="dialog" aria-modal="true" aria-label="Workspace settings" className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[480px] flex-col overflow-y-auto border-l border-[#EAE5DC] bg-white shadow-2xl">
         <div className="modal-header">
           <div>
             <p className="eyebrow">Workspace</p>
@@ -26,7 +25,7 @@ export default function SettingsModal({ onClose, notify, adminName, defaultChann
           </div>
           <IconButton onClick={onClose}><X size={19} /></IconButton>
         </div>
-        <div className="modal-body">
+        <div className="modal-body flex-1">
           <label>School name<input value={SCHOOL_NAME} disabled /></label>
           <label>Administrator name<input value={name} onChange={(e) => setName(e.target.value)} /></label>
           <label>Default notification channel<select value={channel} onChange={(e) => setChannel(e.target.value)}><option>SMS</option><option>WhatsApp</option><option>Email</option></select></label>
@@ -36,7 +35,6 @@ export default function SettingsModal({ onClose, notify, adminName, defaultChann
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button variant="primary" onClick={() => { onSave({ admin_name: name || 'Administrator', default_notification_channel: channel }); onClose(); notify('Settings saved successfully.'); }}><Check size={16} /> Save settings</Button>
         </div>
-      </div>
-    </div>
+    </section>
   );
 }
