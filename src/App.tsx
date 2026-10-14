@@ -41,6 +41,7 @@ import Campaigns from '@/pages/Campaigns';
 import Contacts from '@/pages/Contacts';
 import ContentManager from '@/pages/ContentManager';
 import Inquiries from '@/pages/Inquiries';
+import Students from '@/pages/Students';
 import NotificationModal from '@/components/modals/NotificationModal';
 import ImportModal from '@/components/modals/ImportModal';
 import ContentModal from '@/components/modals/ContentModal';
@@ -448,6 +449,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Overview contacts={contacts} campaigns={campaigns} content={content} inquiries={inquiries} onNavigate={(v: View) => navigate(navItems.find((n) => n.id === v)?.path ?? '/overview')} onCompose={() => setShowNotification(true)} />} />
             <Route path="/overview" element={<Overview contacts={contacts} campaigns={campaigns} content={content} inquiries={inquiries} onNavigate={(v: View) => navigate(navItems.find((n) => n.id === v)?.path ?? '/overview')} onCompose={() => setShowNotification(true)} />} />
+            <Route path="/students" element={<Students />} />
             <Route path="/campaigns" element={<Campaigns campaigns={campaigns} onCompose={() => setShowNotification(true)} onDelete={deleteCampaign} notify={notify} />} />
             <Route path="/contacts" element={<Contacts contacts={contacts} onImport={() => setShowContactImport(true)} onExport={exportContacts} onAdd={() => setShowAddContact(true)} onDelete={deleteContact} />} />
             <Route path="/content" element={<ContentManager content={content} onAdd={() => setShowContentForm(true)} onDelete={deleteContent} onPublish={publishContent} />} />
