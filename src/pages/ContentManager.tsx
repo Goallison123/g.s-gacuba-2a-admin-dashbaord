@@ -50,7 +50,7 @@ export default function ContentManager({ content, onAdd, onEdit, onDelete, onPub
           <input placeholder="Search content" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <div className="filter-wrap">
-          <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value as any); setPage(1); }}>
+          <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value as 'All' | 'News' | 'Announcement' | 'Gallery'); setPage(1); }}>
             <option value="All">All types</option>
             <option value="News">News</option>
             <option value="Announcement">Announcement</option>
@@ -58,7 +58,7 @@ export default function ContentManager({ content, onAdd, onEdit, onDelete, onPub
           </select>
         </div>
         <div className="filter-wrap">
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as any); setPage(1); }}>
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as 'All' | 'Draft' | 'Published'); setPage(1); }}>
             <option value="All">All statuses</option>
             <option value="Published">Published</option>
             <option value="Draft">Draft</option>

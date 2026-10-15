@@ -21,7 +21,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
         <div className="login-brand">
           <div className="login-mark"><BookOpen size={26} strokeWidth={2.5} /></div>
           <strong>{SCHOOL_NAME}</strong>
-          <span>Administrator Portal</span>
+          <span>School Staff Portal</span>
         </div>
         <form onSubmit={submit} className="login-form">
           <label>Email address
@@ -36,7 +36,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
           {error && <div className="login-error"><AlertTriangle size={15} /> {error}</div>}
           <Button type="submit" variant="primary" className="login-submit" disabled={!email.trim() || !password}>Sign in</Button>
         </form>
-        <p className="login-foot">Secure access for authorised school administrators only.</p>
+        <p className="login-foot">Secure access for authorised school staff.</p>
       </div>
     </div>
   );

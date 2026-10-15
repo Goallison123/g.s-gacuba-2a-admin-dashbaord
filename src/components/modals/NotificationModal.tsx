@@ -28,10 +28,12 @@ export default function NotificationModal({
   onClose,
   onSave,
   contacts,
+  allowReports = true,
 }: {
   onClose: () => void;
-  onSave: (campaign: Omit<Campaign, 'id' | 'created_at'>) => void;
+  onSave: (campaign: Omit<Campaign, 'id' | 'created_at'>, dispatch: { fingerprint: string; recipientIds: string[] }) => void;
   contacts: Contact[];
+  allowReports?: boolean;
 }) {
   const [category, setCategory] = useState<Category>('FEES');
   const [title, setTitle] = useState(templates.FEES.title);
@@ -43,7 +45,11 @@ export default function NotificationModal({
   const [error, setError] = useState('');
   const messageRef = useRef<HTMLTextAreaElement>(null);
 
-  const smsContacts = useMemo(() => contacts.filter((contact) => contact.phone.trim()), [contacts]);
+  const smsContacts = useMemo(() => contacts.filter((contact) => {
+    const digits = contact.phone.replace(/[\s()+.-]/g, '');
+    return digits.length >= 8 && Boolean(contact.parent_name.trim() && contact.parent_name.trim().toLowerCase() !== 'not provided' && contact.student_name.trim() && contact.class_name.trim());
+  }), [contacts]);
+  const invalidContactCount = contacts.length - smsContacts.length;
   const recipientCount = recipientMode === 'ALL'
     ? smsContacts.length
     : selectedContactIds.filter((id) => smsContacts.some((contact) => contact.id === id)).length;
@@ -103,6 +109,9 @@ export default function NotificationModal({
       return;
     }
 
+    const recipientIds = (recipientMode === 'ALL' ? smsContacts : smsContacts.filter((contact) => selectedContactIds.includes(contact.id)))
+      .map((contact) => contact.id).sort();
+    const dedupeKey = `${category}|${message.trim()}|${recipientIds.join(',')}`;
     onSave({
       title: title.trim(),
       message: message.trim(),
@@ -111,17 +120,17 @@ export default function NotificationModal({
       status: scheduleMode === 'LATER' ? 'Scheduled' : 'Draft',
       category,
       ...(scheduleMode === 'LATER' ? { scheduled_for: new Date(scheduledDate).toISOString() } : {}),
-    });
+    }, { fingerprint: dedupeKey, recipientIds });
   }
 
-  const categoryOptions: { value: Category; label: string }[] = [
+  const categoryOptions = ([
     { value: 'FEES', label: '1. Remaining Fees Alert ({FEES} calculation)' },
     { value: 'GENERAL', label: '2. School Notification (PTA, emergency, announcements)' },
-    { value: 'REPORT', label: '3. Student Academic Report ({FULLNAME} & {REPORTLINK})' },
-  ];
+      { value: 'REPORT', label: '3. Student Academic Report ({FULLNAME} & {REPORTLINK})' },
+  ] as { value: Category; label: string }[]).filter((option) => allowReports || option.value !== 'REPORT');
 
   return (
-    <section role="dialog" aria-modal="true" aria-labelledby="notification-modal-title" className="fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-[#EAE5DC] bg-white shadow-2xl">
+    <section role="dialog" aria-modal="true" aria-labelledby="notification-modal-title" className="fixed inset-0 z-50 flex h-screen w-screen max-w-none flex-col overflow-hidden bg-white shadow-2xl">
         <header className="flex items-start justify-between border-b border-[#EAE5DC] bg-[#FBF9F5] p-6">
           <div>
             <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-[#786C60]">Parent communications</p>
@@ -170,14 +179,15 @@ export default function NotificationModal({
               ))}
             </div>
 
-            {recipientMode === 'SELECT' && <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-xl border border-[#EAE5DC] bg-[#FBF9F5] p-3">
-              {!smsContacts.length ? <p className="m-0 text-xs text-stone-500">No student registry parent records with a phone number are available for SMS.</p> : smsContacts.map((contact) => (
-                <label key={contact.id} className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#EAE5DC] bg-white p-2 text-xs transition hover:bg-stone-50">
-                  <span className="flex min-w-0 items-center gap-2"><input type="checkbox" checked={selectedContactIds.includes(contact.id)} onChange={() => toggleContact(contact.id)} className="accent-[#3A2818]" /><span className="min-w-0"><strong className="block truncate text-stone-800">{contact.parent_name || 'Parent contact'}</strong><span className="block truncate text-[10px] text-stone-400">{contact.student_name || 'Student'}{contact.class_name ? ` · ${contact.class_name}` : ''}</span></span></span>
-                  <span className="shrink-0 text-[10px] text-stone-500">{contact.phone || contact.email || 'No contact details'}</span>
+            <div className="max-h-56 space-y-1.5 overflow-y-auto rounded-xl border border-[#EAE5DC] bg-[#FBF9F5] p-3">
+              {!smsContacts.length ? <p className="m-0 text-xs text-stone-500">No valid student-parent phone records are available for SMS.</p> : smsContacts.map((contact) => (
+                <label key={contact.id} className={`flex items-center justify-between gap-3 rounded-lg border border-[#EAE5DC] bg-white p-2 text-xs ${recipientMode === 'SELECT' ? 'cursor-pointer hover:bg-stone-50' : ''}`}>
+                  <span className="flex min-w-0 items-center gap-2">{recipientMode === 'SELECT' && <input type="checkbox" checked={selectedContactIds.includes(contact.id)} onChange={() => toggleContact(contact.id)} className="accent-[#3A2818]" />}<span className="min-w-0"><strong className="block truncate text-stone-800">{contact.parent_name}</strong><span className="block truncate text-[10px] text-stone-400">{contact.student_name} · {contact.class_name}</span></span></span>
+                  <span className="shrink-0 text-[10px] text-stone-500">{contact.phone}</span>
                 </label>
               ))}
-            </div>}
+            </div>
+            {invalidContactCount > 0 && <p className="mt-2 text-[10px] leading-relaxed text-amber-800">{invalidContactCount} incomplete or invalid record(s) will be ignored. Fix profile details in <a className="font-semibold underline" href="/students">Student Registry</a>; profile data cannot be edited in this dispatch screen.</p>}
 
           </section>
 
