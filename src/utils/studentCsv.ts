@@ -1,9 +1,11 @@
 export type StudentImportRecord = {
   fullName: string;
+  registrationCode: string;
   parentName: string;
   email: string;
   phone: string;
   studentClass: string;
+  stream: string;
   feeStatus: "Paid" | "Partial" | "Unpaid";
   feeAmount: string;
 };
@@ -12,10 +14,12 @@ export type StudentCsvField =
   | "firstName"
   | "lastName"
   | "fullName"
+  | "registrationCode"
   | "parentName"
   | "email"
   | "phone"
   | "studentClass"
+  | "stream"
   | "feeStatus"
   | "feeAmount";
 
@@ -38,10 +42,12 @@ const csvFields: StudentCsvField[] = [
   "firstName",
   "lastName",
   "fullName",
+  "registrationCode",
   "parentName",
   "email",
   "phone",
   "studentClass",
+  "stream",
   "feeStatus",
   "feeAmount",
 ];
@@ -50,10 +56,12 @@ const headerAliases: Record<StudentCsvField, string[]> = {
   firstName: ["firstname", "studentfirstname", "givenname", "forename"],
   lastName: ["lastname", "studentlastname", "familyname", "surname"],
   fullName: ["fullname", "studentname", "learnername", "pupilname", "name"],
+  registrationCode: ["registrationnumber", "registrationno", "regnumber", "regno", "registrationcode", "studentid"],
   parentName: ["parentname", "guardianname", "guardian", "parentguardian", "contactname"],
   email: ["email", "parentemail", "guardianemail", "contactemail", "emailaddress"],
   phone: ["phone", "telephone", "mobile", "parentphone", "guardianphone", "contactphone"],
-  studentClass: ["class", "classname", "studentclass", "grade", "level", "stream"],
+  studentClass: ["class", "classname", "studentclass", "grade", "level"],
+  stream: ["stream", "studentstream", "section"],
   feeStatus: ["feestatus", "feesstatus", "paymentstatus", "payment", "feespaidstatus"],
   feeAmount: ["feeamount", "feesamount", "amountpaid", "paidamount", "feespaid", "amount"],
 };
@@ -62,10 +70,12 @@ const fieldLabels: Record<StudentCsvField, string> = {
   firstName: "First name",
   lastName: "Last name",
   fullName: "Full name (combined)",
+  registrationCode: "Registration number",
   parentName: "Parent / guardian",
   email: "Parent email",
   phone: "Parent phone",
   studentClass: "Class",
+  stream: "Stream",
   feeStatus: "Fee status",
   feeAmount: "Fees paid amount",
 };
@@ -166,6 +176,7 @@ export function autoMapStudentCsvHeaders(headers: string[]): StudentCsvMapping {
 }
 
 function selectedValue(row: string[], mapping: StudentCsvMapping, field: StudentCsvField) {
+  if (mapping[field] === "") return "";
   const index = Number(mapping[field]);
   return Number.isInteger(index) && index >= 0 ? (row[index] ?? "").trim() : "";
 }
@@ -215,14 +226,21 @@ export function previewStudentCsvRows(
     const fullName = selectedValue(values, mapping, "fullName");
     const normalizedName = normalizeName(firstName, lastName, fullName);
     const studentClass = selectedValue(values, mapping, "studentClass").replace(/\s+/g, " ");
+    const stream = selectedValue(values, mapping, "stream");
     const email = selectedValue(values, mapping, "email");
+    const parentName = selectedValue(values, mapping, "parentName");
+    const phone = selectedValue(values, mapping, "phone");
     const rawFeeStatus = selectedValue(values, mapping, "feeStatus");
     const feeStatus = normalizeFeeStatus(rawFeeStatus);
     const errors: string[] = [];
 
     if (!normalizedName) errors.push("Provide both first and last name, or a full name containing both.");
     if (!studentClass) errors.push("Class is required.");
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Email address is invalid.");
+    if (!stream) errors.push("Student stream is required.");
+    if (!parentName) errors.push("Parent or guardian name is required.");
+    if (!email) errors.push("Parent email is required.");
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Email address is invalid.");
+    if (!phone || phone.replace(/[\s()+.-]/g, "").length < 8) errors.push("A valid parent phone number is required.");
     if (rawFeeStatus && !feeStatus) errors.push(`Unknown fee status: “${rawFeeStatus}”.`);
 
     if (errors.length || !normalizedName) {
@@ -231,10 +249,12 @@ export function previewStudentCsvRows(
 
     const student: StudentImportRecord = {
       fullName: normalizedName,
-      parentName: selectedValue(values, mapping, "parentName") || "Not provided",
+      registrationCode: selectedValue(values, mapping, "registrationCode"),
+      parentName,
       email,
-      phone: selectedValue(values, mapping, "phone"),
+      phone,
       studentClass,
+      stream,
       feeStatus: feeStatus ?? "Unpaid",
       feeAmount: selectedValue(values, mapping, "feeAmount") || "0 RWF",
     };

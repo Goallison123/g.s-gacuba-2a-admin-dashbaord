@@ -1,4 +1,4 @@
-export type View = 'overview' | 'students' | 'campaigns' | 'contacts' | 'content' | 'inquiries';
+export type View = 'overview' | 'students' | 'midterm' | 'users' | 'campaigns' | 'contacts' | 'content' | 'inquiries';
 
 export type Contact = {
   id: string;
@@ -30,6 +30,16 @@ export type WorkspaceSettings = {
   default_notification_channel: string;
   created_at?: string;
   updated_at?: string;
+};
+
+export type BannerAlert = {
+  id: string;
+  title: string;
+  message: string;
+  severity: 'info' | 'warning' | 'critical';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Content = {

@@ -35,6 +35,7 @@ type Student = {
   email: string;
   phone: string;
   studentClass: string;
+  stream?: string;
   feeStatus: FeeStatus;
   feeAmount: string;
   lastUpdated: string;
@@ -116,10 +117,12 @@ const inputClass =
 
 const emptyForm = {
   fullName: "",
+  registryCode: "",
   parentName: "",
   email: "",
   phone: "",
   studentClass: "P1 A",
+  stream: "",
   feeStatus: "Unpaid" as FeeStatus,
   feeAmount: "0 RWF",
 };
@@ -127,25 +130,30 @@ const emptyForm = {
 function toStudentRecord(row: Record<string, unknown>): Student {
   return {
     id: String(row.id),
-    registryCode: String(row.registry_code ?? `STU-${String(row.id).slice(0, 8).toUpperCase()}`),
+    registryCode: String(row.registration_number ?? row.registry_code ?? `STU-${String(row.id).slice(0, 8).toUpperCase()}`),
     fullName: String(row.full_name ?? ""),
     parentName: String(row.parent_name ?? "Not provided"),
     email: String(row.email ?? ""),
     phone: String(row.phone ?? ""),
     studentClass: String(row.class_name ?? ""),
+    stream: String(row.stream ?? ""),
     feeStatus: row.fee_status === "Paid" || row.fee_status === "Partial" ? row.fee_status : "Unpaid",
     feeAmount: String(row.fee_amount ?? "0 RWF"),
     lastUpdated: row.updated_at ? new Date(String(row.updated_at)).toLocaleDateString() : "Just now",
   };
 }
 
-function toStudentPayload(student: Omit<Student, "id" | "registryCode" | "lastUpdated">) {
+function toStudentPayload(student: Omit<Student, "id" | "lastUpdated">) {
+  const registryCode = student.registryCode?.trim() || newRegistryCode();
   return {
+    registry_code: registryCode,
+    registration_number: registryCode,
     full_name: student.fullName,
     parent_name: student.parentName,
     email: student.email,
     phone: student.phone,
     class_name: student.studentClass,
+    stream: student.stream ?? "",
     fee_status: student.feeStatus,
     fee_amount: student.feeAmount,
     updated_at: new Date().toISOString(),
@@ -154,6 +162,12 @@ function toStudentPayload(student: Omit<Student, "id" | "registryCode" | "lastUp
 
 function newRegistryCode() {
   return `STU-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
+function validateParentContact(email: string, phone: string) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "Enter a valid parent email address.";
+  if (phone.replace(/[\s()+.-]/g, "").length < 8) return "Enter a valid parent phone number.";
+  return "";
 }
 
 function feeBadge(status: FeeStatus) {
@@ -293,16 +307,22 @@ export default function Students() {
 
   async function importCsvStudents() {
     if (!reviewConfirmed || importableRows.length === 0) return;
-    const importRecords = importableRows.flatMap((row) => row.student ? [{
-      registry_code: newRegistryCode(),
+    const importRecords = importableRows.flatMap((row) => {
+      if (!row.student) return [];
+      const registrationCode = row.student.registrationCode || newRegistryCode();
+      return [{
+      registry_code: registrationCode,
+      registration_number: registrationCode,
       full_name: row.student.fullName,
+      stream: row.student.stream,
       parent_name: row.student.parentName,
       email: row.student.email,
       phone: row.student.phone,
       class_name: row.student.studentClass,
       fee_status: row.student.feeStatus,
       fee_amount: row.student.feeAmount,
-    }] : []);
+    }];
+    });
     let importedStudents: Student[];
 
     if (supabase) {
@@ -322,7 +342,8 @@ export default function Students() {
       importedStudents = importableRows.flatMap((row) => {
         if (!row.student) return [];
         nextNumber += 1;
-        return [{ ...row.student, id: `STU-${nextNumber}`, lastUpdated: "Just now" }];
+        const { registrationCode, ...student } = row.student;
+        return [{ ...student, id: `STU-${nextNumber}`, registryCode: registrationCode || newRegistryCode(), lastUpdated: "Just now" }];
       });
       notify("Supabase is not configured; these imported records will only remain for this browser session.");
     }
@@ -363,6 +384,11 @@ export default function Students() {
       setError("Complete the student and parent contact fields first.");
       return;
     }
+    const contactError = validateParentContact(activeStudent.email, activeStudent.phone);
+    if (contactError || !activeStudent.studentClass.trim() || !activeStudent.stream?.trim()) {
+      setError(contactError || (!activeStudent.studentClass.trim() ? "Select a student class." : "Enter the student's stream."));
+      return;
+    }
 
     const updated = { ...activeStudent, lastUpdated: "Just now" };
     if (supabase) {
@@ -397,12 +423,18 @@ export default function Students() {
       setError("Full name, parent's name, email and phone are required.");
       return;
     }
+    const contactError = validateParentContact(form.email, form.phone);
+    if (contactError || !form.studentClass.trim() || !form.stream.trim()) {
+      setError(contactError || (!form.studentClass.trim() ? "Select a student class." : "Enter the student's stream."));
+      return;
+    }
 
     let newStudent: Student;
     if (supabase) {
+      const registryCode = form.registryCode.trim() || newRegistryCode();
       const { data, error: insertError } = await supabase
         .from("school_students")
-        .insert({ registry_code: newRegistryCode(), ...toStudentPayload(form) })
+        .insert({ ...toStudentPayload({ ...form, registryCode }) })
         .select("*")
         .maybeSingle();
       if (insertError || !data) {
@@ -416,7 +448,7 @@ export default function Students() {
         const number = Number(student.id.replace("STU-", ""));
         return Number.isFinite(number) ? Math.max(max, number) : max;
       }, 100) + 1;
-      newStudent = { ...form, id: `STU-${nextNumber}`, lastUpdated: "Just now" };
+      newStudent = { ...form, registryCode: form.registryCode.trim() || newRegistryCode(), id: `STU-${nextNumber}`, lastUpdated: "Just now" };
     }
 
     setStudents((current) => [newStudent, ...current]);
@@ -457,6 +489,10 @@ export default function Students() {
           <input className={inputClass} value={values.fullName} onChange={(e) => setValue("fullName", e.target.value)} placeholder="e.g. Mugisha Jean Claude" />
         </label>
         <label className="block">
+          <span className="mb-1.5 block text-xs font-semibold uppercase text-stone-600">Registration number</span>
+          <input className={inputClass} value={values.registryCode ?? ""} onChange={(e) => setValue("registryCode", e.target.value)} placeholder="Leave blank to generate automatically" />
+        </label>
+        <label className="block">
           <span className="mb-1.5 block text-xs font-semibold uppercase text-stone-600">Parent's name *</span>
           <input className={inputClass} value={values.parentName} onChange={(e) => setValue("parentName", e.target.value)} placeholder="e.g. Jean Bosco Mugisha" />
         </label>
@@ -486,6 +522,10 @@ export default function Students() {
             </select>
           </label>
         </div>
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-semibold uppercase text-stone-600">Stream *</span>
+          <input className={inputClass} value={values.stream ?? ""} onChange={(e) => setValue("stream", e.target.value)} placeholder="e.g. Science / Arts" />
+        </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-semibold uppercase text-stone-600">School fees paid amount</span>
           <input className={inputClass} value={values.feeAmount} onChange={(e) => setValue("feeAmount", e.target.value)} placeholder="e.g. 120,000 RWF" />
@@ -644,7 +684,7 @@ export default function Students() {
                         );
                       })}
                     </div>
-                    <p className="mb-0 mt-3 text-xs text-stone-500">Required: first + last name, or one full-name column, and class. Parent contact and fee columns are optional.</p>
+                    <p className="mb-0 mt-3 text-xs text-stone-500">Required: student name, class, stream, parent/guardian name, valid parent email, and phone. Registration number is generated when omitted; fee fields are optional.</p>
                   </section>
 
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

@@ -36,7 +36,10 @@ export default function HeadmasterOverview({
   onNavigate: (view: View) => void;
 }) {
   const [displayName, setDisplayName] = useState(adminName);
-  const [displayRole, setDisplayRole] = useState(adminRole);
+  const displayRole = adminRole === 'dean_of_studies' ? 'Dean of Studies'
+    : adminRole === 'headteacher' ? 'Headteacher'
+      : adminRole === 'teacher' ? 'Teacher'
+        : adminRole === 'it' ? 'IT' : 'School Staff';
   const [reportPeriod, setReportPeriod] = useState('Term 3, 2026');
   const [studentCategory, setStudentCategory] = useState<'ALL' | 'NEW' | 'MIDTERM'>('ALL');
   const [tasks, setTasks] = useState<Task[]>([
@@ -103,11 +106,11 @@ export default function HeadmasterOverview({
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <label className="rounded-xl border border-[#EAE5DC] bg-[#FBF9F5] px-3.5 py-2">
             <span className="block text-[10px] font-semibold uppercase text-stone-400">Name</span>
-            <input aria-label="Headmaster display name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} className="w-40 bg-transparent font-medium text-stone-800 outline-none" />
+            <input aria-label="Headteacher display name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} className="w-40 bg-transparent font-medium text-stone-800 outline-none" />
           </label>
           <label className="rounded-xl border border-[#EAE5DC] bg-[#FBF9F5] px-3.5 py-2">
             <span className="block text-[10px] font-semibold uppercase text-stone-400">Role</span>
-            <input aria-label="Headmaster role" value={displayRole} onChange={(event) => setDisplayRole(event.target.value)} className="w-36 bg-transparent font-medium text-stone-800 outline-none" />
+            <span className="font-medium text-stone-800">{displayRole}</span>
           </label>
           <div className="rounded-xl border border-[#EAE5DC] bg-[#FBF9F5] px-3.5 py-2">
             <span className="block text-[10px] font-semibold uppercase text-stone-400">Date</span>
@@ -156,7 +159,7 @@ export default function HeadmasterOverview({
         <div className="flex flex-col justify-between rounded-2xl border border-[#EAE5DC] bg-white p-6 shadow-sm">
           <div>
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="m-0 font-serif text-lg font-bold text-[#3A2818]">Headmaster checklist</h2>
+              <h2 className="m-0 font-serif text-lg font-bold text-[#3A2818]">Headteacher checklist</h2>
               <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-stone-600">Quick actions</span>
             </div>
             <div className="space-y-3">
